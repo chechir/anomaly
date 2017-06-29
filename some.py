@@ -44,7 +44,7 @@ if __name__ == '__main__':
 
     #### multivariate_normal
     feats = np.vstack([feat1, feat2, feat3])
-    covariance_matrix = np.matrix(np.cov(feats))
+    covariance_matrix = np.matrix(np.corrcoef(feats))
     means = np.mean(feats,axis=1)
     var = multivariate_normal(mean=means, cov=covariance_matrix)
 
