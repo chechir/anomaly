@@ -8,6 +8,26 @@ from statsmodels.tsa.stattools import adfuller
 from matplotlib import pyplot as plt
 import seamless as ss
 
+def very_simple_exp_smoothing(v, alpha=0.2):
+    previous_v = ss.np.lag(v, np.nan, shift=1)
+    previous2_v = ss.np.lag(v, np.nan, shift=2)
+    result = alpha*previous_v + (1-alpha)*previous2_v
+    return result
+
+def simple_exp_smoothing(v, alpha=0.2):
+    result = [np.nan, float(v[0])] # first value is nan
+    for i in range(2, len(v)):
+        value = alpha * v[i-1] + (1 - alpha) * result[i-1]
+        #import pdb;pdb.set_trace()
+        result.append(value)
+    return result
+
+def mape(actual, estimate):
+    pcterrors = []
+    for i in range(len(estimate)):
+        pcterrors.append(abs(estimate[i]-actual[i])/actual[i])
+    return sum(pcterrors)/len(pcterrors)
+
 def test_stationarity(timeseries, window=12):
     #Determing rolling statistics
     rolmean = pd.rolling_mean(timeseries, window=window)
