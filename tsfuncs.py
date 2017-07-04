@@ -15,12 +15,23 @@ def very_simple_exp_smoothing(v, alpha=0.2):
     return result
 
 def simple_exp_smoothing(v, alpha=0.2):
-    result = [np.nan, float(v[0])] # first value is nan
+    result = np.zeros(len(v)) * np.nan
+    result[0], result[1] = np.nan, float(v[0])
     for i in range(2, len(v)):
-        value = alpha * v[i-1] + (1 - alpha) * result[i-1]
-        #import pdb;pdb.set_trace()
-        result.append(value)
+        result[i] = alpha * v[i-1] + (1 - alpha) * result[i-1]
     return result
+
+def holt_exp_smoothing(v, span, beta):
+    intercept = np.zeros(len(v)) * np.nan
+    slope = np.zeros(len(v)) * np.nan
+    intercept[0], intercept[1] = np.nan, v[0]
+    slope[0], slope[1] = np.nan, 0
+
+    alpha = 2.0 / (1 + span)
+    for i in range(2, len(v)):
+        intercept[i] = alpha * v[i-1] + (1 - alpha) * (intercept[i-1] + slope[i-1])
+        slope[i] = (beta * (intercept[i] - intercept[i-1]) + (1 - beta) * slope[i-1])
+    return intercept
 
 def mape(actual, estimate):
     pcterrors = []
