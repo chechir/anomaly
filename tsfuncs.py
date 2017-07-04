@@ -1,3 +1,4 @@
+from functools import partial
 import numpy as np
 import pandas as pd
 from pandas import datetime
@@ -8,10 +9,23 @@ from statsmodels.tsa.stattools import adfuller
 from matplotlib import pyplot as plt
 import seamless as ss
 
-def very_simple_exp_smoothing(v, alpha=0.2):
-    previous_v = ss.np.lag(v, np.nan, shift=1)
-    previous2_v = ss.np.lag(v, np.nan, shift=2)
-    result = alpha*previous_v + (1-alpha)*previous2_v
+cutoff = '2015-05-05'
+
+def ema(v, alpha=0.2):
+    result = np.nan * v
+    result[0] = v[0]
+    for i in range(1, len(v)):
+        result[i] = alpha * v[i] + (1 - alpha) * result[i-1]
+    return result
+
+def lagged_ema(v, alpha):
+    emas = ema(v, alpha)
+    emas = ss.np.lag(emas, init=0)
+    return emas
+
+def grouped_lagged_ema(v, alpha, groupby):
+    func = partial(lagged_ema, alpha=alpha)
+    result = ss.np.group_apply(v, groupby, func)
     return result
 
 def simple_exp_smoothing(v, alpha=0.2):
@@ -21,17 +35,26 @@ def simple_exp_smoothing(v, alpha=0.2):
         result[i] = alpha * v[i-1] + (1 - alpha) * result[i-1]
     return result
 
-def holt_exp_smoothing(v, span, beta):
-    intercept = np.zeros(len(v)) * np.nan
-    slope = np.zeros(len(v)) * np.nan
-    intercept[0], intercept[1] = np.nan, v[0]
-    slope[0], slope[1] = np.nan, 0
-
+def dema(v, span, beta):
+    intercept = v * np.nan
+    slope = v * np.nan
+    intercept[0] = v[0]
+    slope[0] = 0
     alpha = 2.0 / (1 + span)
-    for i in range(2, len(v)):
-        intercept[i] = alpha * v[i-1] + (1 - alpha) * (intercept[i-1] + slope[i-1])
+    for i in range(1, len(v)):
+        intercept[i] = alpha * v[i] + (1 - alpha) * (intercept[i-1] + slope[i-1])
         slope[i] = (beta * (intercept[i] - intercept[i-1]) + (1 - beta) * slope[i-1])
     return intercept
+
+def lagged_dema(v, span, beta):
+    demas = dema(v, span, beta)
+    demas = ss.np.lag(demas, init=0)
+    return demas
+
+def grouped_lagged_dema(v, span, beta, groupby):
+    func = partial(lagged_dema, span=span, beta=beta)
+    result = ss.np.group_apply(v, groupby, func)
+    return result
 
 def mape(actual, estimate):
     pcterrors = []
@@ -111,10 +134,11 @@ def get_actual_vs_prediction_plot(actual, predictions):
     plt.ylabel('Sales')
     plt.show()
 
-def split_data(df):
-    X = df.values
-    size = int(len(X) * 0.66)
-    train, test = X[0:size], X[size:len(X)]
+def split_data(df, date=None):
+    if date is not None:
+        df.index = date
+    train_ix = df.index < cutoff
+    train, test = df.iloc[train_ix], df.iloc[~train_ix]
     return train, test
 
 def get_rolling_predictions(model, train, val):
@@ -130,3 +154,5 @@ def get_rolling_predictions(model, train, val):
         history.append(obs)
         print('predicted=%f, expected=%f' % (yhat, obs))
     return predictions
+
+##########################Maurits funcs

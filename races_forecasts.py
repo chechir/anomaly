@@ -2,75 +2,54 @@ import numpy as np
 import pandas as pd
 from holy_hammer import data
 from sklearn.metrics import mean_squared_error
-
 from anomalias import tsfuncs as ts
+import seamless as ss
+
+target = 'meanp'
 
 if __name__ == '__main__':
     df = data.load()
-    df = df.rowslice(df['horse_name']=='dvinsky')
-    df['deltap'] = df['place_flag'] - (1./df['place_odds'])
-    df['meanp'] = df['place_flag']*0.6 + (1./df['place_odds'])*0.4
+    #df = df.rowslice((df['horse_name'] == 'old_town_boy') | (df['horse_name'] == 'hayek'))
+    #df = df.rowslice((df['horse_name'] == 'old_town_boy') )
+    df[target] = df['place_flag']*0.6 + (1./df['place_odds'])*0.4
 
-    series = pd.DataFrame(df['meanp'].astype(float))
-    series.columns = ['meanp']
-    series.index = df['scheduled_time']
+    df = df.to_pandas()
+    df.index = df['scheduled_time']
+    df = df[['horse_name',target]]
 
-    ts.get_autocorrelation_plot(series, title='Residuals ACF, all should be whitin confidence interval')
+    tr, val = ts.split_data(df)
 
-    model = ts.get_arima_model(series)
-    model_fit = ts.fit_model(model)
-    print(model_fit.summary())
-
-    residuals = pd.DataFrame(model_fit.resid)
-    ts.get_autocorrelation_plot(residuals, title='Residuals ACF, all should be whitin confidence interval')
-    #ts.get_kde_plot(residuals, title='Kernel Density Function for the residuals. Should be close to normal')
-
-    train, val = ts.split_data(series)
-    predictions = ts.get_rolling_predictions(model, train, val)
-
-########################################################################
-    # Evakuate
-    error = mean_squared_error((val), np.exp(predictions))
-    error = ts.mape((val), (predictions))
-    print('ARIMA MSE: %.3f' % error)
-
-    ts.get_actual_vs_prediction_plot((val), (predictions))
-
-    pred_naive = series.shift(1)
-    tr, pred_naive_val = ts.split_data(pred_naive)
-    error = mean_squared_error((val), (pred_naive_val))
-    error = ts.mape((val), (pred_naive_val))
-    print('Naive MSE: %.3f' % error)
-
-    pred_rolling = series.rolling(window=2).mean()
-    pred_rolling = pred_rolling.shift(1)
-    tr, pred_rolling_val = ts.split_data(pred_rolling)
-    error = mean_squared_error((val), (pred_rolling_val))
-    error = ts.mape((val), (pred_rolling_val))
-    print('Rolling mean MSE: %.3f' % error)
-
-    ewma_avg = series.ewm(halflife=5, ignore_na=False, min_periods=1, adjust=True).mean()
-    tr, ewma_val = ts.split_data(pred_naive)
-    error = mean_squared_error((val), (ewma_val))
-    error = ts.mape((val), (ewma_val))
-    print('EWMA MSE: %.3f' % error)
-
-    simple_exp = ts.simple_exp_smoothing(series.values, alpha=0.45)
-    tr, simple_exp_val = ts.split_data(pd.DataFrame(simple_exp))
-    error = mean_squared_error((val), (simple_exp_val))
-    error = ts.mape((val), (simple_exp_val))
+    simple_exp = ts.grouped_lagged_ema(df[target].values, 0.70, df['horse_name'].values)
+    tr, simple_exp_val = ts.split_data(pd.DataFrame(simple_exp), date=df.index)
+    error = ts.mape(val[target].values, simple_exp_val.values)
     print('Simple exp MSE: %.3f' % error)
 
-    holt_exp = ts.holt_exp_smoothing(series.values, span=3, beta=0.45)
-    tr, holt_exp_val = ts.split_data(pd.DataFrame(holt_exp))
-    error = mean_squared_error((val), (holt_exp_val))
-    error = ts.mape(np.exp(val), (holt_exp_val))
+    #best mse:
+    simple_exp = ts.grouped_lagged_ema(df[target].values, 0.99, df['horse_name'].values)
+    tr, simple_exp_val = ts.split_data(pd.DataFrame(simple_exp), date=df.index)
+    error = ts.mape(val[target].values, simple_exp_val.values)
     print('Simple exp MSE: %.3f' % error)
 
-    holt_exp = ts.holt_exp_smoothing(series.values, span=20, beta=0.05)
-    tr, holt_exp_val = ts.split_data(pd.DataFrame(holt_exp))
-    error = mean_squared_error((val), (holt_exp_val))
-    error = ts.mape(np.exp(val), (holt_exp_val))
-    print('Simple exp MSE: %.3f' % error)
-    ts.get_actual_vs_prediction_plot((val), (holt_exp_val))
+    #best mse:
+    holt_exp = ts.grouped_lagged_dema(df[target].values, span=2, beta=0.10, groupby=df['horse_name'].values)
+    tr, holt_exp_val = ts.split_data(pd.DataFrame(holt_exp), date=df.index)
+    error = ts.mape(val[target].values, holt_exp_val.values)
+    print('holt exp MSE: %.3f' % error)
+
+    holt_exp = ts.grouped_lagged_dema(df[target].values, span=20, beta=0.05, groupby=df['horse_name'].values)
+    tr, holt_exp_val = ts.split_data(pd.DataFrame(holt_exp), date=df.index)
+    error = ts.mape(val[target].values, holt_exp_val.values)
+    print('holt exp MSE: %.3f' % error)
+
+    holt_exp = ts.grouped_lagged_dema(df[target].values, span=5, beta=0.50, groupby=df['horse_name'].values)
+    tr, holt_exp_val = ts.split_data(pd.DataFrame(holt_exp), date=df.index)
+    error = ts.mape(val[target].values, holt_exp_val.values)
+    print('holt exp MSE: %.3f' % error)
+
+    holt_exp = ts.grouped_lagged_dema(df[target].values, span=10, beta=0.20, groupby=df['horse_name'].values)
+    tr, holt_exp_val = ts.split_data(pd.DataFrame(holt_exp), date=df.index)
+    error = ts.mape(val[target].values, holt_exp_val.values)
+    print('holt exp MSE: %.3f' % error)
+
+    ts.get_actual_vs_prediction_plot(val[target].values, holt_exp_val.values)
 
