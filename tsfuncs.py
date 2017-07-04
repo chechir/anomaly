@@ -28,13 +28,6 @@ def grouped_lagged_ema(v, alpha, groupby):
     result = ss.np.group_apply(v, groupby, func)
     return result
 
-def simple_exp_smoothing(v, alpha=0.2):
-    result = np.zeros(len(v)) * np.nan
-    result[0], result[1] = np.nan, float(v[0])
-    for i in range(2, len(v)):
-        result[i] = alpha * v[i-1] + (1 - alpha) * result[i-1]
-    return result
-
 def dema(v, span, beta):
     intercept = v * np.nan
     slope = v * np.nan
