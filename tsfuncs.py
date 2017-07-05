@@ -9,7 +9,18 @@ from statsmodels.tsa.stattools import adfuller
 from matplotlib import pyplot as plt
 import seamless as ss
 
-cutoff = '2015-05-05'
+cutoff = '2000-05-05'
+
+
+def lagged_rolling_mean(v, window):
+    result = ss.np.rolling_mean(v, window)
+    result = ss.np.lag(result, init=0)
+    return result
+
+def grouped_lagged_rolling_mean(v, window, groupby):
+    func = partial(lagged_rolling_mean, window=window)
+    result = ss.np.group_apply(v, groupby, func)
+    return result
 
 def ema(v, alpha=0.2):
     result = np.nan * v
@@ -121,13 +132,15 @@ def get_ts_plot(df, title='Time series plot'):
     plt.show()
 
 def get_actual_vs_prediction_plot(actual, predictions):
-    plt.plot(actual, color='g', label='Sales')
-    plt.plot(predictions, color='c', label='Predictions')
+    fig, ax = plt.subplots(figsize=(12,8))
+    ax.plot(actual, color='g', label='Actual')
+    ax.plot(predictions, color='c', label='Predictions')
     plt.legend()
-    plt.ylabel('Sales')
+    plt.ylabel('Value')
     plt.show()
 
-def split_data(df, date=None):
+
+def split_data(df, date=None, cutoff = cutoff):
     if date is not None:
         df.index = date
     train_ix = df.index < cutoff
@@ -148,4 +161,3 @@ def get_rolling_predictions(model, train, val):
         print('predicted=%f, expected=%f' % (yhat, obs))
     return predictions
 
-##########################Maurits funcs
