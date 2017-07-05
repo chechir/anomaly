@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 from holy_hammer import data
+from horse.data import datasets
 from sklearn.metrics import mean_squared_error
 from anomalias import tsfuncs as ts
 import seamless as ss
@@ -8,8 +9,29 @@ import seamless as ss
 target = 'meanp'
 cutoff = '2000-01-01'
 
+def evaluate_ema(df, alpha):
+    feature = ts.grouped_lagged_ema(df[target].values, alpha, df['horse_name'].values)
+    feature_val = feature[val_ixs]
+    error = np.sqrt(mean_squared_error(val[target].values, feature_val))
+    print('EMA %.3f' % alpha + '- MSE: %.3f' % error)
+    return feature_val
+
+def evaluate_dema(df, span, beta):
+    feature = ts.grouped_lagged_dema(df[target].values, span, beta, df['horse_name'].values)
+    feature_val = feature[val_ixs]
+    error = np.sqrt(mean_squared_error(val[target].values, feature_val))
+    print('DEMA %.3f' % beta + '- MSE: %.3f' % error)
+    return feature_val
+
+def evaluate_rolling_mean(df, window):
+    feature = ts.grouped_lagged_rolling_mean(df[target].values, window, df['horse_name'].values)
+    feature_val = feature[val_ixs]
+    error = np.sqrt(mean_squared_error(val[target].values, feature_val))
+    print('Rolling mean %.3f' % window + '- MSE: %.3f' % error)
+    return feature_val
+
 if __name__ == '__main__':
-    df = data.load()
+    df = datasets.cleaned.load()
     #df = df.rowslice((df['horse_name'] == 'old_town_boy') | (df['horse_name'] == 'hayek'))
     #df = df.rowslice((df['horse_name'] == 'old_town_boy') )
     df[target] = df['place_flag']*0.6 + (1./df['place_odds'])*0.4
@@ -18,34 +40,15 @@ if __name__ == '__main__':
     df.index = df['scheduled_time']
     df = df[['horse_name',target]]
 
-    tr, val = ts.split_data(df, cutoff)
+    ixs = df.index < cutoff
+    val_ixs = ~ixs
+    val = df.iloc[val_ixs]
 
-    simple_exp = ts.grouped_lagged_ema(df[target].values, 0.70, df['horse_name'].values)
-    tr, simple_exp_val = ts.split_data(pd.DataFrame(simple_exp), date=df.index, cutoff=cutoff)
-    error = ts.mape(val[target].values, simple_exp_val.values)
-    print('Simple exp MSE: %.3f' % error)
+    feature_val = evaluate_ema(df, 0.7)
+    feature_val = evaluate_ema(df, 0.99)
+    feature_val = evaluate_dema(df, 2, 0.1)
+    feature_val = evaluate_dema(df, 20, 0.05)
+    feature_val = evaluate_dema(df, 20, 0.5)
 
-    #best mse:
-    simple_exp = ts.grouped_lagged_ema(df[target].values, 0.99, df['horse_name'].values)
-    tr, simple_exp_val = ts.split_data(pd.DataFrame(simple_exp), date=df.index, cutoff=cutoff)
-    error = ts.mape(val[target].values, simple_exp_val.values)
-    print('Simple exp MSE: %.3f' % error)
-
-    #best mse:
-    holt_exp = ts.grouped_lagged_dema(df[target].values, span=2, beta=0.10, groupby=df['horse_name'].values)
-    tr, holt_exp_val = ts.split_data(pd.DataFrame(holt_exp), date=df.index, cutoff=cutoff)
-    error = ts.mape(val[target].values, holt_exp_val.values)
-    print('holt exp MSE: %.3f' % error)
-
-    holt_exp = ts.grouped_lagged_dema(df[target].values, span=20, beta=0.05, groupby=df['horse_name'].values)
-    tr, holt_exp_val = ts.split_data(pd.DataFrame(holt_exp), date=df.index, cutoff=cutoff)
-    error = ts.mape(val[target].values, holt_exp_val.values)
-    print('holt exp MSE: %.3f' % error)
-
-    holt_exp = ts.grouped_lagged_dema(df[target].values, span=5, beta=0.50, groupby=df['horse_name'].values)
-    tr, holt_exp_val = ts.split_data(pd.DataFrame(holt_exp), date=df.index, cutoff=cutoff)
-    error = ts.mape(val[target].values, holt_exp_val.values)
-    print('holt exp MSE: %.3f' % error)
-
-    ts.get_actual_vs_prediction_plot(val[target].values, holt_exp_val.values)
+    ts.get_actual_vs_prediction_plot(val[target].values, feature_val)
 
