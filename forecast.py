@@ -23,7 +23,9 @@ if __name__ == '__main__':
     #ts.get_autocorrelation_plot(residuals, title='Residuals ACF, all should be whitin confidence interval')
     #ts.get_kde_plot(residuals, title='Kernel Density Function for the residuals. Should be close to normal')
 
-    train, val = ts.split_data(series, cutoff=cutoff)
+    train_ixs = ts.get_ixs(series, cutoff=cutoff)
+    val_ixs = ~train_ixs
+    train, val = series.iloc[train_ixs], series.iloc[~train_ixs]
     predictions = ts.get_rolling_predictions(model, train, val)
 
 ########################################################################
@@ -35,19 +37,19 @@ if __name__ == '__main__':
     #ts.get_actual_vs_prediction_plot(np.exp(val), np.exp(predictions))
 
     pred_naive = series.shift(1)
-    tr, pred_naive_val = ts.split_data(pred_naive, cutoff=cutoff)
+    pred_naive_val = pred_naive[val_ixs]
     error = mean_squared_error(np.exp(val), np.exp(pred_naive_val))
     error = ts.mape(np.exp(val), np.exp(pred_naive_val))
     print('Naive MSE: %.3f' % error)
 
     pred_rolling = ts.lagged_rolling_mean(series.values, window=2)
-    tr, pred_rolling_val = ts.split_data(pd.DataFrame(pred_rolling), cutoff=cutoff, date=series.index)
+    pred_rolling_val = pred_rolling[val_ixs]
     error = mean_squared_error(np.exp(val), np.exp(pred_rolling_val))
-    error = ts.mape(np.exp(val), np.exp(pred_rolling_val.values))
+    error = ts.mape(np.exp(val), np.exp(pred_rolling_val))
     print('Rolling mean MSE: %.3f' % error)
 
     simple_exp = ts.lagged_ema(series, alpha=0.45)
-    tr, simple_exp_val = ts.split_data(pd.DataFrame(simple_exp), cutoff=cutoff)
+    simple_exp_val = simple_exp[val_ixs]
     error = mean_squared_error(np.exp(val), np.exp(simple_exp_val.values))
     error = ts.mape(np.exp(val), np.exp(simple_exp_val.values))
     print('Simple exp MSE: %.3f' % error)

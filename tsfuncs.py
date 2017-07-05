@@ -139,13 +139,11 @@ def get_actual_vs_prediction_plot(actual, predictions):
     plt.ylabel('Value')
     plt.show()
 
-
-def split_data(df, date=None, cutoff = cutoff):
+def get_ixs(df, date=None, cutoff = cutoff):
     if date is not None:
         df.index = date
-    train_ix = df.index < cutoff
-    train, test = df.iloc[train_ix], df.iloc[~train_ix]
-    return train, test
+    ixs = df.index < cutoff
+    return ixs
 
 def get_rolling_predictions(model, train, val):
     history = [x for x in train]
